@@ -1,0 +1,9 @@
+{
+	"name": "Multiplayer_Pacman",
+	"description": "Play Pacman With Multiple People!",
+	"dependencies": {
+		"express": "*",
+		"ejs": "*",
+		"socket.io": "*"
+	}
+}

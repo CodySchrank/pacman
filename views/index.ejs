@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Pacman</title>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+	<script type="text/javascript" src="/socket.io/socket.io.js"></script>
+	<style type="text/css">
+		body {
+		    overflow:hidden;
+		}
+
+		#score {
+			position: absolute;
+			color: white;
+			margin: 0px;
+			left: 500px;
+			top: 5px;
+			font-family: impact;
+		}
+
+		#container{
+			background-color: black;
+			width: 672px;
+			height: 736px;
+			position: relative;
+			margin: 0 auto;
+	    }
+	/* 0 */
+	    .brick{ 
+			background-color: blue;
+			width: 32px;
+			height: 32px;
+			position: absolute;
+			/*display: inline-block;*/
+	    }
+	/* 1 */
+	    .coin{
+			background-image: url('cd_pacman_basic/coin.png');
+			background-size: cover;
+			width: 32px;
+			height: 32px;
+			position: absolute;
+			/*display: inline-block;*/
+	    }
+
+	    .pacman{
+			background-image: url('cd_pacman_basic/pacman2.png');
+			background-size: cover;
+			width: 32px;
+			height: 32px;
+			position: absolute;
+			/*display: inline-block;*/
+	    }
+	/* 2 */
+	    .blank{
+			width: 32px;
+			height: 32px;
+			position: absolute;
+			/*display: inline-block;*/
+	    }
+
+	   	.gate{
+			width: 32px;
+			height: 32px;
+			position: absolute;
+			background-color: lightblue;
+			/*display: inline-block;*/
+	    }
+
+	    .ghost{
+			background-size: cover;
+			width: 32px;
+			height: 32px;
+			position: absolute;
+	    }
+
+	    .text{
+	    	position: absolute;
+	    	color: orange;
+	    	top: 220px;
+	    	left: 250px;
+	    	font-size: 32px;
+	    	font-weight: bold;
+	    	font-family: impact;
+	    	text-align: center;
+	    }
+
+	</style>
+	<script type="text/javascript">
+		$(document).ready(function(){
+			console.log('Play Pacman');
+			(function(){
+
+				var pacman = {
+					x: 10,
+					y: 16,
+					direction: null,
+					src: "url('cd_pacman_basic/pacgif.gif')",
+					life: 1
+				}
+
+				var initialized = false;
+				var score = 0;
+				var width = 21;
+				var loop = setInterval(gameLoop,200);
+				var coins = 152;
+				var gate = {
+					status: true,
+					x: 10,
+					y: 9,
+					value: 199
+				}
+
+				var world = [
+					2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+					2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+					2,0,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0,2,
+					2,0,1,0,0,1,0,0,0,1,0,1,0,0,0,1,0,0,1,0,2,
+					2,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,2,
+					2,0,1,0,0,1,0,1,0,0,0,0,0,1,0,1,0,0,1,0,2,
+					2,0,1,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,1,0,2,
+					2,0,0,0,0,1,0,0,0,1,0,1,0,0,0,1,0,0,0,0,2,
+					2,2,2,2,0,1,0,2,2,2,2,2,2,2,0,1,0,2,2,2,2,
+					0,0,0,0,0,1,0,2,0,0,3,0,0,2,0,1,0,0,0,0,0,
+					2,2,2,2,2,1,2,2,0,2,2,2,0,2,2,1,2,2,2,2,2,
+					0,0,0,0,0,1,0,2,0,0,0,0,0,2,0,1,0,0,0,0,0,
+					2,2,2,2,0,1,0,2,2,2,2,2,2,2,0,1,0,2,2,2,2,
+					2,0,0,0,0,1,0,2,0,0,0,0,0,2,0,1,0,0,0,0,2,
+					2,0,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,0,2,
+					2,0,1,0,0,1,0,0,0,1,0,1,0,0,0,1,0,0,1,0,2,
+					2,0,1,1,0,1,1,1,1,1,2,1,1,1,1,1,0,1,1,0,2,
+					2,0,0,1,0,1,0,1,0,0,0,0,0,1,0,1,0,1,0,0,2,
+					2,0,1,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,1,0,2,
+					2,0,1,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,1,0,2,
+					2,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,2,
+					2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+				];
+
+				function drawWorld(){
+					$('#world').html('');
+
+					for(var i = 0; i< world.length; i++){
+						if(world[i] === 0){
+							$('#world').append("<div class='brick' style='top:" + Math.floor(i/width) * 32 + "px;left:" + (i%width) * 32 + "px'></div>");
+						} else if(world[i] === 1){
+							$('#world').append("<div class='coin' style='top:" + Math.floor(i/width) * 32 + "px;left:" + (i%width) * 32 + "px'></div>");
+						} else if(world[i] === 3){
+							$('#world').append("<div class='gate' style='top:" + Math.floor(i/width) * 32 + "px;left:" + (i%width) * 32 + "px'></div>");
+						}
+					}
+				}
+
+				function drawPacman(){
+					$('#world').append("<div class='pacman' style='top: " + pacman.y * 32 + "px; left: " + pacman.x * 32 + "px'></div>");
+
+					if(initialized) {
+						$('.pacman').css('background-image', pacman.src);
+					}
+
+					if(pacman.direction == "right"){
+						$('.pacman').css('-webkit-transform','rotate(180deg)');
+					}
+					if(pacman.direction == "down") {
+						$('.pacman').css('-webkit-transform','rotate(90deg)');
+					}
+					if(pacman.direction == "up") {
+						$(".pacman").css('-webkit-transform','rotate(270deg)');
+					}
+				}
+
+				document.onkeydown = function(e){
+					initialized = true;
+					// console.log(e.keyCode);
+					if(e.keyCode == 39 && world[(pacman.y * width) + pacman.x + 1] !== 0){
+						// pacman.x += 1;
+						pacman.direction = "left";
+					} else if(e.keyCode == 38 && world[(pacman.y * width) - width + pacman.x] !== 0){
+						// pacman.y -= 1;
+						pacman.direction = "up";
+					} else if(e.keyCode == 37 && world[(pacman.y * width) + pacman.x -1] !== 0){
+						// pacman.x -= 1;
+						pacman.direction = "right";
+					} else if(e.keyCode == 40 && world[(pacman.y * width) + width + pacman.x] !== 0){
+						// pacman.y += 1;
+						pacman.direction = "down";
+					}
+					// console.log(pacman);
+				}
+
+				function pacmanDirection(){
+						var posleft = (pacman.y * width) + pacman.x + 1;
+						var posright = (pacman.y * width) + pacman.x - 1;
+						var posup = (pacman.y * width) - width + pacman.x;
+						var posdown = (pacman.y * width) + width + pacman.x;
+
+						if(pacman.direction == "left" && world[posleft] !== 0){
+							pacman.x += 1;
+						} else if(pacman.direction == "up" && world[posup] !== 0){
+							pacman.y -= 1;
+						} else if(pacman.direction == "right" && world[posright] !== 0){
+							pacman.x -= 1;
+						} else if(pacman.direction == "down" && world[posdown] !== 0 && posdown !== gate.value) {
+							pacman.y += 1;
+						} else {
+							return;
+						}
+
+					//BOUNCE
+					if(pacman.x == 0 && pacman.y == 10) {
+						setTimeout(function(){
+							pacman.x = 20;
+							pacman.y = 10;
+						},100);
+					}
+					//BOUNCE
+					if(pacman.x == 20 && pacman.y == 10) {
+						setTimeout(function(){
+							pacman.x = 0;
+							pacman.y = 10;
+						},100);
+					}
+					//DETECT COIN
+					if(world[(pacman.y * width) + pacman.x] == 1){
+						world[(pacman.y * width) + pacman.x] = 2;
+						score += 10;
+						coins -= 1;
+						$('span').html(score);
+					}
+				}
+
+				var Ghost = function(x,y,src){
+					this.x = x;
+					this.y = y;
+					var currentdirection = null;
+					this.src = src;
+					var self = this;
+					this.last = {
+						x: null,
+						y: null
+					}
+					this.passed = false;
+
+					//RANDOM MOVEMENT
+					// this.move = function(){
+					// 	if(Math.floor(Math.random() * 2) == 0){
+					// 		if(Math.floor(Math.random() * 2) == 0){
+					// 			if(world[(this.y * width) + this.x + 1] !== 0) this.x += 1;
+					// 		} else {
+					// 			if(world[(this.y * width) + this.x -1] !== 0) this.x -= 1;
+					// 		}
+					// 	} else {
+					// 		if(Math.floor(Math.random() * 2) == 0){
+					// 			if(world[(this.y * width) + width + this.x] !== 0) this.y += 1;
+					// 		} else {
+					// 			if(world[(this.y * width) - width + this.x] !== 0) this.y -= 1;
+					// 		}
+					// 	}
+					// }
+
+					// ATTEMPT 1 AT GHOST LOGIC
+					// this.findPacman = function (arg,x,y,last){
+							// if(!arg) i = 0;
+							// if(!x) var x = this.x;
+							// if(!y) var y = this.y;
+							// if(!last) var last = 0;
+							// if(i > 50) {
+							// 	return;
+							// }
+							// console.log(i,x,y);
+							// if(world[(y * width) + x + 1] !== 0 && ((y * width) + x + 1) !== last) {
+							// 	i++;
+							// 	x++;
+							// 	var was = (y * width) + x + 1;
+							// 	console.log("a:",i,x,y,last,was);
+							// 	return this.findPacman(i,x,y,was);
+							// }
+							// if(world[(y * width) + x - 1] !== 0 && ((y * width) + x - 1) !== last) {
+							// 	i++;
+							// 	x--;
+							// 	var was = (y * width) + x -1;
+							// 	console.log(i,x,y,last,was);
+							// 	return this.findPacman(i,x,y,was);
+							// }
+							// if(world[(y * width) + width + x] !== 0 && ((y * width) + width + x) !== last ) {
+							// 	i++;
+							// 	y--;
+							// 	var was = (y * width) + width + x;
+							// 	console.log(i,x,y,last,was);
+							// 	return this.findPacman(i,x,y,was);
+							// }
+							// if(world[(y * width) - width + x] !== 0 && (y * width) - width + x !== last) {
+							// 	i++;
+							// 	y++;
+							// 	var was = (y * width) - width + x;
+							// 	console.log(i,x,y,last,was);
+							// 	return this.findPacman(i,x,y,was);
+							// }
+					// }
+
+					// ATTEMPT 2 AT GHOST LOGIC
+					// var visited = [0];
+					// this.findPacman = function(pari,parpx,parpy,wall){
+					// 	if(!pari) {
+					// 		var i = 0;
+					// 	} else {
+					// 		var i = pari;
+					// 	}
+
+					// 	if(!parpx){
+					// 		var px = this.x;
+					// 	} else {
+					// 		var px = parpx;
+					// 	}
+
+					// 	if(!parpy) {
+					// 		var py = this.y;
+					// 	} else {
+					// 		var py = parpy;
+					// 	}
+
+					// 	if(i > 100) {
+					// 		this.x = px;
+					// 		this.y = py;
+					// 		return;
+					// 	}
+
+					// 	if(wall){
+					// 		return;
+					// 	}
+
+					// 	if((visited.indexOf((this.y * width) + this.x) === -1) && (world[(this.y * width) + this.x] !== 0)){
+					// 		visited.push((this.y * width) + this.x);
+					// 		// console.log("1",px,py);
+					// 		this.findPacman(i,px,py,false);
+					// 	}
+					// 	if((visited.indexOf((py * width) + px + 1) === -1) && (world[(py * width) + px + 1] !== 0)){
+					// 		visited.push((py * width) + px + 1);
+					// 		// console.log("a",px,py);
+					// 		i++;
+					// 		px++;
+					// 		this.findPacman(i,px,py,false);
+					// 	}
+					// 	if((visited.indexOf((py * width) + px -1) === - 1) && (world[(py * width) + px - 1] !== 0)){
+					// 		visited.push((py * width) + px - 1);
+					// 		// console.log("b",px,py);
+					// 		i++;
+					// 		px--;
+					// 		this.findPacman(i,px,py,false);
+					// 	}
+					// 	if((visited.indexOf((py * width) + width + px) === -1) && world[(py * width) + width + px] !== 0) {
+					// 		visited.push((py * width) + width + px);
+					// 		// console.log("c",px,py);
+					// 		i++;
+					// 		py++;
+					// 		this.findPacman(i,px,py,false);
+					// 	}
+					// 	if((visited.indexOf((py * width) - width + px) === -1) && world[(py * width) - width + px] !== 0) {
+					// 		visited.push((py * width) - width + px);
+					// 		// console.log("d",px,py);
+					// 		i++;
+					// 		py--;
+					// 		this.findPacman(i,px,py,false);
+					// 	}
+					// 	// console.log(visited);
+					// 	return visited;
+					// }
+
+					// this.move = function(pacman){
+					// 	var spaces = this.findPacman();
+					// 	for (space in spaces) {
+					// 		// console.log(spaces[space]);
+					// 		if((pacman.y * width) + pacman.x == spaces[space]) {
+					// 			if(spaces[space]/width < pacman.y * width) {
+					// 				if(world[(this.y * width) + width + this.x] !== 0) this.y += 1;
+					// 			} else {
+					// 				if(world[(this.y * width) - width + this.x] !== 0) this.y -= 1;
+					// 			}
+					// 			if(spaces[space]/width < pacman.x) {
+					// 				if(world[(this.y * width) + this.x + 1] !== 0) this.x += 1;
+					// 			} else {
+					// 				if(world[(this.y * width) + this.x -1] !== 0) this.x -= 1;
+					// 			}
+					// 		}
+					// 	}
+					// }
+
+					//ATTEMPT 3 AT GHOST LOGIC... NO TRACKING BUT LESS RETARDED MOVEMENT
+					this.move = function(gloc){
+						updateLast();
+						var lastdirection = currentdirection;
+						var possible = [];
+
+						if(this.passed) {
+							world[gate.value] = 0;
+						}
+
+						if(world[(this.y * width) + this.x + 1] !== 0) {
+							possible.push('left');
+						}
+						if(world[(this.y * width) + this.x -1] !== 0) {
+							possible.push('right');
+						}
+						if(world[(this.y * width) - width + this.x] !== 0) {
+							possible.push('up');
+						}
+						if(world[(this.y * width) + width + this.x] !== 0) {
+							possible.push('down');
+						}
+
+						for (var pos in possible) {
+							var l;
+							if(lastdirection == "right") l = "left";
+							if(lastdirection == "left") l = "right";
+							if(lastdirection == "up") l = "down";
+							if(lastdirection == "down") l = "up";
+							if(possible[pos] == l) {
+								possible.splice(pos,1);
+							}
+						}
+
+						for (var pos in possible) {
+							if(Math.floor(Math.random() * possible.length) == 0) {
+								currentdirection = possible[pos];
+								break;
+							}
+						}
+
+						var posleft = (this.y * width) + this.x + 1;
+						var posright = (this.y * width) + this.x - 1;
+						var posup = (this.y * width) - width + this.x;
+						var posdown = (this.y * width) + width + this.x;
+
+						if(currentdirection == "left" && world[posleft] !== 0 
+							&& posleft !== gloc[0] && posleft !== gloc[1] && posleft !== gloc[2]) {
+							this.x += 1
+							currentdirection == "left";
+						} else if(currentdirection == "right" && world[posright] !== 0 && posright !== gloc[0] && posright !== gloc[1] && posright !== gloc[2]) {
+							this.x -= 1;
+							currentdirection == "right";
+						} else if(currentdirection == "up" && world[posup] !== 0 && posup !== gloc[0] && posup !== gloc[1] && posup !== gloc[2]) {
+							this.y -= 1;
+							currentdirection == "up";
+						} else if(currentdirection == "down" && world[posdown] !== 0 && posdown !== gloc[0] && posdown !== gloc[1] && posdown !== gloc[2]) {
+							this.y += 1;
+							currentdirection == "down";
+						} else {
+							if(Math.floor(Math.random() * 2) == 0){
+								if(Math.floor(Math.random() * 2) == 0){
+									if(world[posleft] !== 0 && posleft !== gloc[0] && posleft !== gloc[1] && posleft !== gloc[2]) {
+										this.x += 1;
+										currentdirection = "left";
+									}
+								} else {
+									if(world[posright] !== 0 && posright !== gloc[0] && posright !== gloc[1] && posright !== gloc[2]) {
+										this.x -= 1;
+										currentdirection = "right";
+									}
+								}
+							} else {
+								if(Math.floor(Math.random() * 2) == 0){
+									if(world[posdown] !== 0 && posdown !== gloc[0] && posdown !== gloc[1] && posdown !== gloc[2]) {
+										this.y += 1; 
+										currentdirection = "down";
+									}
+								} else {
+									if(world[posup] !== 0 && posup !== gloc[0] && posup !== gloc[1] && posup !== gloc[2]) {
+										this.y -= 1; 
+										currentdirection = "up";
+									}
+								}
+							}
+						}
+
+						//GATE
+						if(this.x == 10 && this.y == 9) {
+							this.passed = true;
+						}
+
+						//BOUNCE
+						if(self.x == 0 && self.y == 10) {
+							setTimeout(function(){
+								self.x = 20;
+								self.y = 10;
+							},100);self
+						}
+
+						//BOUNCE
+						if(self.x == 20 && self.y == 10) {
+							setTimeout(function(){
+								self.x = 0;
+								self.y = 10;
+							},100);
+						}
+
+						if(gate.status) {
+							world[gate.value] = 3;
+						}
+					}
+
+					//ATTEMPT 4 AT GHOST LOGIC..WITH TRACKING PACMAN
+					this.moveAttack = function(pacman,gloc){
+						var Path = function(that,pacman,x,y,i,last,paths,backed,gloc){
+							if(!i) var i = 0;
+							if(!x) var x = that.x;
+							if(!y) var y = that.y;
+							if(!attack) var attack = [];
+							if(!last) var last = {x: null, y: null};
+							if(last) this.last = last;
+							if(!paths) var paths = [0];
+							if(pacman.x == x && pacman.y == y) {
+								// console.log(this);
+								var lastobj = this.last;
+								if(lastobj.x == null || lastobj.last.x == null) {
+									that.x = x;
+									that.y = y;
+									console.log("true");
+									return;
+								}
+								while(lastobj.last.last.x !== null && lastobj.last.last.y !== null) {
+									lastobj = lastobj.last;
+								}
+								// console.log(this,lastobj);
+								if(lastobj.x !== gloc[0].x && lastobj.x !== gloc[1].x && lastobj.x !== gloc[2].x) {
+									that.x = lastobj.x;
+								}
+								if(lastobj.y !== gloc[0].y && lastobj.y !== gloc[1].y && lastobj.y !== gloc[2].y) {
+									that.y = lastobj.y;
+								}
+								return;
+							}
+
+							if(pacman.x < that.x) {
+								attack.push("left");
+							} else if(pacman.x > that.x) {
+								attack.push("right");
+							}
+							if(pacman.y < that.y) {
+								attack.push("up");
+							} else if(pacman.y > that.y) {
+								attack.push("down");
+							}
+							if(!possible) var possible = [];
+							var posleft = (y * width) + x - 1;
+							var posright = (y * width) + x + 1;
+							var posup = (y * width) - width + x;
+							var posdown = (y * width) + width + x;
+							if(world[posup] !== 0) {
+								possible.push("up");
+							}
+							if(world[posleft] !== 0) {
+								possible.push("left");
+							}
+							if(world[posright] !== 0) {
+								possible.push("right");
+							}
+							if(world[posdown] !== 0) {
+								possible.push("down");
+							}
+
+							for(var att in attack) {
+								if(possible.indexOf(attack[att]) == -1) {
+									attack.splice(att,1);
+								}
+							}
+
+							this.a = attack;
+							this.p = possible;
+							this.x = x;
+							this.y = y;
+
+							if(i > 25) {
+								return;
+							}
+
+							if(attack[0] == undefined) {
+								attack.push(0);
+							}
+
+							for(var att in attack) {
+								for (var pos in possible) {
+									// console.log("ran");
+									if(possible[pos] == attack[att]) {
+										var status = true;
+										if(attack[att] == "right" && paths.indexOf(posright) == -1) {
+											x++;
+											i++;
+											paths.push((y * width) + x);
+											new Path(that,pacman,x,y,i,this,paths,false,gloc);
+										}
+										if(attack[att] == "left" && paths.indexOf(posleft) == -1) {
+											x--;
+											i++;
+											paths.push((y * width) + x);
+											new Path(that,pacman,x,y,i,this,paths,false,gloc);
+										}
+										if(attack[att] == "down" && paths.indexOf(posdown) == -1) {
+											y++;
+											i++;
+											paths.push((y * width) + x);
+											new Path(that,pacman,x,y,i,this,paths,false,gloc);
+										}
+										if(attack[att] == "up" && paths.indexOf(posup) == -1) {
+											y--;
+											i++;
+											paths.push((y * width) + x);
+											new Path(that,pacman,x,y,i,this,paths,false,gloc);
+										}
+									}
+								}
+								for(var pos in possible) {
+									var status = false;
+										if(possible[pos] == "right" && paths.indexOf(posright) == -1) {
+											status = true;
+											x++;
+											i++;
+											paths.push((y * width) + x);
+											new Path(that,pacman,x,y,i,this,paths,false,gloc);
+											x--;
+										}
+										if(possible[pos] == "left" && paths.indexOf(posleft) == -1) {
+											status = true;
+											x--;
+											i++;
+											paths.push((y * width) + x);
+											new Path(that,pacman,x,y,i,this,paths,false,gloc);
+											x++;
+										}
+										if(possible[pos] == "down" && paths.indexOf(posdown) == -1) {
+											status = true;
+											y++;
+											i++;
+											paths.push((y * width) + x);
+											new Path(that,pacman,x,y,i,this,paths,false,gloc);
+											y--;
+										}
+										if(possible[pos] == "up" && paths.indexOf(posup) == -1) {
+											status = true;
+											y--;
+											i++;
+											paths.push((y * width) + x);
+											new Path(that,pacman,x,y,i,this,paths,false,gloc);
+											y++;
+										}
+									}
+								}
+
+							if(!status && !backed) {
+								x = this.last.x;
+								y = this.last.y;
+								// console.log("Backed");
+								return new Path(that,pacman,x,y,i,this,paths,true,gloc);
+							}
+						}
+						var p = new Path(this,pacman,null,null,null,null,null,null,gloc);
+						// console.log(p);
+					}
+
+					var updateLast = function(){
+						self.last = {
+							x: self.x,
+							y: self.y
+						}
+					}
+
+					this.draw = function(){
+						$('#world').append("<div class='ghost' style='top: " + this.y * 32 + "px; left: " + this.x * 32 + "px; background-image: url("+this.src+")'></div>");
+					}
+				}
+
+				var ghost1 = new Ghost(9,10,"cd_pacman_basic/ghost1.png");
+				var ghost2 = new Ghost(10,10,"cd_pacman_basic/ghost2.png");
+				var ghost3 = new Ghost(11,10,"cd_pacman_basic/ghost3.png");
+
+				function ghostVsPacman(pacman,ghost1,ghost2,ghost3) {
+					var ghosts = [ghost1,ghost2,ghost3];
+					for (g in ghosts) {
+						if(pacman.x == ghosts[g].x && pacman.y == ghosts[g].y) {
+							console.log("true");
+							return true;
+						}
+						if(pacman.x == ghosts[g].last.x && pacman.y == ghosts[g].last.y) {
+							console.log("true");
+							return true;
+						}
+					}
+				}
+
+				function pacmanLife() {
+					var noLife = ghostVsPacman(pacman,ghost1,ghost2,ghost3);
+					if(noLife) {
+						pacman.life -= 1;
+					} 
+					if(pacman.life == 0) {
+						clearInterval(loop);
+						pacman.src = "cd_pacman_basic/pacman2.png";
+						drawWorld();
+						drawPacman();
+						// drawGhosts();
+						$('#world').append("<p class='text'>No More Lives..</p>");
+					}
+				}
+
+				function win(){
+					if(coins == 0) {
+						clearInterval(loop);
+						pacman.src = "cd_pacman_basic/pacman2.png";
+						drawWorld();
+						drawPacman();
+						drawGhosts();
+						$('#world').append("<p class='text'>You Won!</p>");
+					}
+				}
+
+				function ghostlocations(ghostarray){
+					var locations = [];
+					for(var ghost in ghostarray) {
+						locations.push((ghostarray[ghost].y * width) + ghostarray[ghost].x);
+					}
+					return locations;
+				}
+
+				function ghosts(){
+					var gloc = ghostlocations([ghost1,ghost2,ghost3]);
+					ghost1.moveAttack(pacman,gloc);
+					gloc = ghostlocations([ghost1,ghost2,ghost3]);
+					ghost2.move(gloc);
+					gloc = ghostlocations([ghost1,ghost2,ghost3]);
+					ghost3.move(gloc);
+					ghost1.draw();
+					ghost2.draw();
+					ghost3.draw();
+				}
+
+				function gameLoop(){
+					drawWorld();
+
+					//Movement
+					pacmanDirection();
+
+					drawPacman();
+
+					if(!initialized) {
+						$('#world').append("<p class='text'>To Begin Use:<br>Left<br>Right<br>Up<br>Down</p>");
+					} else {
+						ghosts();
+					}
+
+					//Life
+					pacmanLife();
+					win();
+				}
+
+			})();
+		})
+	</script>
+</head>
+<body>
+<div id="container">
+	<div id="world"></div>
+	<p id="score">Score: <span>0</span></p>
+</div>
+</body>
+</html>
